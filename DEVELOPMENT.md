@@ -50,5 +50,5 @@ Cargo builds into `~/.cache/llama-engine/target`, outside the plugin folder: Oma
 
 The JSON the engine prints is the contract with the QML (`BarWidget.qml` → `Panel.qml`); keep its shape when changing the engine.
 
-`preview.png` is a composed screenshot of the real panel while llama.cpp was generating for a coding agent (see `PREVIEW.md`).
+`preview.png` is composed from the real screenshots in `screenshots/`; the values it shows are sample data.
 
