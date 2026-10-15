@@ -1,28 +1,37 @@
 # Builds bin/engine and bin/liball_smi_amd.so from the exact commit, with the
-# toolchain pinned in mise.toml, and publishes a build provenance attestation
-# for both files. Run it by hand (artifact) or push a v* tag (release).
+# toolchain pinned in mise.toml, attests their build provenance and commits them
+# to main. It runs when the engine sources change, or by hand on main.
 name: Build engine
 
 on:
   workflow_dispatch:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths:
+      - "engine/**"
+      - "mise.toml"
+      - "scripts/build-engine.sh"
+      - ".github/workflows/build-engine.yml"
+
+# One build at a time, so two runs never race to push bin/.
+concurrency:
+  group: build-engine
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
-      contents: write      # create the release on tags
+      contents: write      # commit the binaries to main
       id-token: write      # sign the attestation
       attestations: write  # store the attestation
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
         with:
@@ -41,20 +50,16 @@ jobs:
             bin/engine
             bin/liball_smi_amd.so
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: bin
-          path: |
-            bin/engine
-            bin/liball_smi_amd.so
-            bin/SHA256SUMS
-
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Commit binaries
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            bin/engine bin/liball_smi_amd.so bin/SHA256SUMS \
-            --title "$GITHUB_REF_NAME" \
-            --notes "Binaries built by .github/workflows/build-engine.yml from $GITHUB_SHA. Verify with: gh attestation verify bin/engine --repo $GITHUB_REPOSITORY"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bin/engine bin/liball_smi_amd.so bin/SHA256SUMS
+          if git diff --cached --quiet; then
+            echo "Binaries unchanged."
+            exit 0
+          fi
+          git commit -m "🤖 build binaries from ${GITHUB_SHA::7}" \
+            -m "Built by .github/workflows/build-engine.yml (run $GITHUB_RUN_ID) from $GITHUB_SHA."
+          git pull --rebase origin main
+          git push origin HEAD:main

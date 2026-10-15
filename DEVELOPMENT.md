@@ -64,11 +64,13 @@ gh attestation verify bin/engine --repo vk2r/battle-station
 gh attestation verify bin/liball_smi_amd.so --repo vk2r/battle-station
 ```
 
-The attestation names the workflow run and the source commit that produced each file. [`verify-binaries.yml`](.github/workflows/verify-binaries.yml) runs the same checks on every push. `liball_smi_amd.so` is the unmodified file from the all-smi release pinned in `mise.toml`.
+The attestation names the workflow run and the source commit that produced each file. [`verify-binaries.yml`](.github/workflows/verify-binaries.yml) runs these checks on every push and also confirms that the attested source commit has the same `engine/`, `mise.toml` and `scripts/build-engine.sh` as the current commit, so the binaries are never older than the code. `liball_smi_amd.so` is the unmodified file from the all-smi release pinned in `mise.toml`.
+
+The build is not bit-for-bit reproducible: building the same source twice gives different `engine` files. That is why the binaries are built once, committed, and verified through their attestation, not rebuilt to compare.
 
 ### Releasing a new engine
 
-1. Change `engine/` and push it.
-2. Run the **Build engine** workflow by hand and download its `bin` artifact.
-3. Put the three files in `bin/` (`chmod +x bin/engine bin/liball_smi_amd.so`), commit and push.
-4. Push a `v*` tag: the workflow rebuilds, attests and publishes a release with the same files. **Verify binaries** must stay green.
+1. Change `engine/` (or `mise.toml`, `scripts/build-engine.sh`) and push to `main`.
+2. **Build engine** runs by itself, attests the new binaries and commits `bin/` to `main` (`🤖 build binaries from <sha>`). It can also be started by hand from the Actions tab.
+3. **Verify binaries** must be green on that commit. Pull before doing anything else.
+4. To publish a release, push a `v*` tag on that commit. **Release** verifies the committed binaries and publishes them as they are; it never rebuilds.
