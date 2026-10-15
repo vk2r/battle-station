@@ -46,7 +46,7 @@ mise run snapshot     # print one snapshot (bin/engine --once)
 mise run validate     # omarchy plugin validate .
 ```
 
-Cargo builds into `~/.cache/llama-engine/target`, outside the plugin folder: Omarchy reloads a plugin whenever a file in it changes. Commit `bin/engine`, `bin/liball_smi_amd.so` and `engine/Cargo.lock` together after a rebuild, and run `mise run licenses` + commit `licenses/THIRD-PARTY.txt` when the dependencies changed; Omarchy installs plugins with a plain `git clone` and never runs a build. The all-smi crate (`engine/Cargo.toml`) and the all-smi tool in `mise.toml` must stay on the same version, because the engine loads the companion library through a versioned ABI. On other architectures (e.g. aarch64), run `mise run build` once in the plugin folder.
+Cargo builds into `~/.cache/battle-station-engine/target`, outside the plugin folder: Omarchy reloads a plugin whenever a file in it changes. Commit `bin/engine`, `bin/liball_smi_amd.so` and `engine/Cargo.lock` together after a rebuild, and run `mise run licenses` + commit `licenses/THIRD-PARTY.txt` when the dependencies changed; Omarchy installs plugins with a plain `git clone` and never runs a build. The all-smi crate (`engine/Cargo.toml`) and the all-smi tool in `mise.toml` must stay on the same version, because the engine loads the companion library through a versioned ABI. On other architectures (e.g. aarch64), run `mise run build` once in the plugin folder.
 
 The JSON the engine prints is the contract with the QML (`BarWidget.qml` → `Panel.qml`); keep its shape when changing the engine.
 

@@ -1,6 +1,6 @@
 [package]
-name = "llama-engine"
-version = "0.4.0"
+name = "battle-station-engine"
+version = "1.0.0"
 edition = "2024"
 rust-version = "1.96"
 license = "MIT"

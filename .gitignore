@@ -1,3 +1,3 @@
-# Cargo builds into ~/.cache/llama-engine/target (scripts/build-engine.sh);
+# Cargo builds into ~/.cache/battle-station-engine/target (scripts/build-engine.sh);
 # this only catches a plain `cargo build` inside engine/.
 engine/target/

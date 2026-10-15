@@ -1897,8 +1897,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
-name = "llama-engine"
-version = "0.4.0"
+name = "battle-station-engine"
+version = "1.0.0"
 dependencies = [
  "all-smi",
  "regex",

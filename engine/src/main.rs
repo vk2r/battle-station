@@ -1,4 +1,4 @@
-//! LLM Monitor engine: stream local-LLM usage as one JSON line per interval.
+//! BattleStation engine: stream hardware and local-LLM usage as one JSON line per interval.
 //!
 //! Runtimes are identified by executable path and systemd cgroup, not by process
 //! name: LM Studio's engine is also called `llama-server`.
