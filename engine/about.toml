@@ -1,0 +1,39 @@
+# cargo-about configuration for the crates linked into bin/engine.
+# Regenerate the notice with `mise run licenses` after changing engine's
+# dependencies (engine/Cargo.toml or engine/Cargo.lock).
+# Format: https://embarkstudios.github.io/cargo-about/cli/generate/config.html
+
+# Priority order: dual-licensed crates (typically "MIT OR Apache-2.0") emit
+# only the first matching license, keeping the notice compact.
+accepted = [
+    "Apache-2.0",
+    "MIT",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+    "CC0-1.0",
+    "MPL-2.0",
+    "0BSD",
+    "Unlicense",
+    "MIT-0",
+    "BlueOak-1.0.0",
+]
+
+# bin/engine ships on Linux (x86_64, and locally built on e.g. aarch64);
+# crates that only exist for other platforms stay out of the notice.
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+]
+
+# Build and dev dependencies never end up inside bin/engine.
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+
+# The engine crate itself is private (publish = false); the plugin's own
+# license lives in LICENSE, so only third-party crates need to be listed.
+private = { ignore = true }

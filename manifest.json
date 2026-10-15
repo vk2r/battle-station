@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.vk2r.battle-station",
+  "name": "BattleStation",
+  "version": "1.0.0",
+  "author": "vk",
+  "description": "Hardware monitor for the bar: GPU memory, load, temperature and power (NVIDIA, AMD or Intel, coloured to match the card), plus CPU and RAM. If llama.cpp, Ollama, LM Studio or vLLM is running, it also shows the model it holds on the GPU, how full its context and output buffers are (green to red) and which programs use it.",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "BattleStation",
+    "description": "Hardware monitor with GPU, CPU and RAM, plus local LLM runtimes when found",
+    "category": "System",
+    "defaultSection": "right",
+    "allowMultiple": false
+  },
+  "license": "MIT"
+}
