@@ -1,0 +1,60 @@
+# Builds bin/engine and bin/liball_smi_amd.so from the exact commit, with the
+# toolchain pinned in mise.toml, and publishes a build provenance attestation
+# for both files. Run it by hand (artifact) or push a v* tag (release).
+name: Build engine
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: write      # create the release on tags
+      id-token: write      # sign the attestation
+      attestations: write  # store the attestation
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
+        with:
+          install: true
+          cache: false
+
+      - name: Build
+        run: mise run build
+
+      - name: Checksums
+        run: cd bin && sha256sum engine liball_smi_amd.so | tee SHA256SUMS
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            bin/engine
+            bin/liball_smi_amd.so
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bin
+          path: |
+            bin/engine
+            bin/liball_smi_amd.so
+            bin/SHA256SUMS
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            bin/engine bin/liball_smi_amd.so bin/SHA256SUMS \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Binaries built by .github/workflows/build-engine.yml from $GITHUB_SHA. Verify with: gh attestation verify bin/engine --repo $GITHUB_REPOSITORY"

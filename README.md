@@ -45,7 +45,7 @@ omarchy plugin enable io.github.vk2r.battle-station
 - **GPU memory per runtime** is taken from the GPU's per-process memory, so the bar can show how much VRAM the models hold, separate from the other apps.
 - **The interface only draws.** The bar widget and the panel are QML; they show whatever the latest snapshot says, and the only action that changes anything is **Detach**.
 
-More details, including how to rebuild the engine, are in [DEVELOPMENT.md](DEVELOPMENT.md).
+The bundled binaries are built by GitHub Actions and carry a build provenance attestation, so you can check that they come from this source (`gh attestation verify bin/engine --repo vk2r/battle-station`). More details, including how to rebuild the engine, are in [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Usage
 

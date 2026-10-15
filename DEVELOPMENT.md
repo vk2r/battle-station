@@ -52,3 +52,23 @@ The JSON the engine prints is the contract with the QML (`BarWidget.qml` → `Pa
 
 `preview.png` is composed from the real screenshots in `screenshots/`; the values it shows are sample data.
 
+## Verifying the bundled binaries
+
+`bin/engine` and `bin/liball_smi_amd.so` are built by GitHub Actions ([`build-engine.yml`](.github/workflows/build-engine.yml)) from the exact commit, with the toolchain pinned in `mise.toml` (`mise run build`). Each file carries a build provenance attestation, and `bin/SHA256SUMS` lists their digests.
+
+Check them with the [GitHub CLI](https://cli.github.com/):
+
+```sh
+cd bin && sha256sum -c SHA256SUMS && cd ..
+gh attestation verify bin/engine --repo vk2r/battle-station
+gh attestation verify bin/liball_smi_amd.so --repo vk2r/battle-station
+```
+
+The attestation names the workflow run and the source commit that produced each file. [`verify-binaries.yml`](.github/workflows/verify-binaries.yml) runs the same checks on every push. `liball_smi_amd.so` is the unmodified file from the all-smi release pinned in `mise.toml`.
+
+### Releasing a new engine
+
+1. Change `engine/` and push it.
+2. Run the **Build engine** workflow by hand and download its `bin` artifact.
+3. Put the three files in `bin/` (`chmod +x bin/engine bin/liball_smi_amd.so`), commit and push.
+4. Push a `v*` tag: the workflow rebuilds, attests and publishes a release with the same files. **Verify binaries** must stay green.

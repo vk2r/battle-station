@@ -1,0 +1,35 @@
+# Checks that the bundled binaries in bin/ are exactly the ones built by
+# build-engine.yml: the checksums match and each file has a build provenance
+# attestation signed by that workflow.
+name: Verify binaries
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Checksums
+        run: cd bin && sha256sum -c SHA256SUMS
+
+      - name: Attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for file in bin/engine bin/liball_smi_amd.so; do
+            gh attestation verify "$file" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/build-engine.yml"
+          done
