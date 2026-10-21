@@ -11,6 +11,11 @@ protoc = "36.2"
 description = "Build bin/engine and copy the AMD companion library beside it"
 run = "scripts/build-engine.sh"
 
+[tasks.version]
+description = "Set the manifest.json version, commit it and tag it (mise run version 1.2.0)"
+usage = 'arg "<version>" help="New version, e.g. 1.2.0"'
+run = 'scripts/version.sh {{usage.version}}'
+
 [tasks.licenses]
 description = "Regenerate licenses/THIRD-PARTY.txt from the crates linked into bin/engine"
 run = "cargo about generate --locked --fail -m engine/Cargo.toml engine/about.hbs -o licenses/THIRD-PARTY.txt"

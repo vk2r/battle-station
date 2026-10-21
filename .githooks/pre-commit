@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Refuse commits that touch bin/: build-engine.yml builds, signs and commits it.
+# A local `mise run build` changes bin/ for testing only; drop it with `git restore --staged --worktree bin/`.
+# Enable once per clone: git config core.hooksPath .githooks
+set -euo pipefail
+
+changed="$(git diff --cached --name-only -- bin/)"
+[[ -z $changed ]] && exit 0
+
+echo "pre-commit: bin/ is built and committed by GitHub Actions, not by hand:" >&2
+sed 's/^/  /' <<<"$changed" >&2
+echo "Drop them with: git restore --staged --worktree bin/" >&2
+exit 1
