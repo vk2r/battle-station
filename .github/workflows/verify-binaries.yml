@@ -1,6 +1,8 @@
-# Checks that the bundled binaries in bin/ are exactly the ones built by
-# build-engine.yml: the checksums match and each file has a build provenance
-# attestation signed by that workflow.
+# Checks that the bundled binaries in bin/ are the ones built by build-engine.yml:
+# the checksums match, each file has a build provenance attestation signed by that
+# workflow, and the source it was built from has the same engine code as this commit.
+# On branch pushes and PRs a stale binary is only a warning, since build-engine.yml
+# rebuilds bin/ after the push to main; on tags (Release) and manual runs it fails.
 name: Verify binaries
 
 on:
@@ -8,6 +10,7 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -19,17 +22,47 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Checksums
         run: cd bin && sha256sum -c SHA256SUMS
 
-      - name: Attestations
+      - name: Attestations and source
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          # What the binaries are built from; they must not be older than these.
+          sources=(engine mise.toml scripts/build-engine.sh)
+          strict=0
+          [[ $GITHUB_EVENT_NAME == workflow_dispatch || $GITHUB_REF == refs/tags/* ]] && strict=1
+          # Use the signed attestation committed beside the binaries; older commits have none.
+          bundle=()
+          [[ -f bin/provenance.sigstore.json ]] && bundle=(--bundle bin/provenance.sigstore.json)
           for file in bin/engine bin/liball_smi_amd.so; do
-            gh attestation verify "$file" \
+            gh attestation verify "$file" "${bundle[@]}" \
               --repo "$GITHUB_REPOSITORY" \
-              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/build-engine.yml"
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/build-engine.yml" \
+              --format json > attestations.json
+            matched=0
+            # A file can have several attestations (one per build that produced it).
+            for commit in $(jq -r '.. | .sourceRepositoryDigest? // empty' attestations.json | sort -u); do
+              same=1
+              for path in "${sources[@]}"; do
+                [[ "$(git rev-parse "$commit:$path" 2>/dev/null)" == "$(git rev-parse "HEAD:$path")" ]] || same=0
+              done
+              if [[ $same == 1 ]]; then
+                echo "$file: built from $commit, same sources as HEAD"
+                matched=1
+                break
+              fi
+            done
+            if [[ $matched == 0 ]]; then
+              if [[ $strict == 1 ]]; then
+                echo "::error::$file was not built from the current engine sources"
+                exit 1
+              fi
+              echo "::warning::$file was not built from the current engine sources yet; Build engine rebuilds it after the push to main"
+            fi
           done

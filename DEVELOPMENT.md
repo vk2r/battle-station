@@ -1,74 +1,53 @@
 # Development notes
 
-Technical details moved out of `README.md`, which now covers only installation and usage.
+Usage is in [README.md](README.md); this file covers what you need to change the plugin.
 
-## Languages and settings
+## Setup
 
-The interface is built in in eight languages: English, German (Deutsch), French (Français), Spanish (Español), Italian (Italiano), Portuguese (Português), Dutch (Nederlands) and Polish (Polski). Omarchy has no interface-language setting of its own, so the language is picked automatically from the active Hyprland keyboard layout (e.g. `es` or `latam` â EspaÃ±ol); when the layout is English or has no translation, the system locale (`LC_ALL`, `LC_MESSAGES`, `LANG`) decides, then English. To pick another one, open the **gear (⚙)** at the top right of the panel → **Language**. The translations ship with the plugin: nothing is downloaded or generated, and the plugin makes no extra requests for them. The choice is stored in the widget's own entry in `~/.config/omarchy/shell.json` (`"language"`); **Automatic (…)** removes it again.
-
-The settings page opens from the gear and closes with **← Back**, Backspace or Esc.
-
-The settings page also has a **GPU** dropdown: it picks the card the monitor follows everywhere (bar chip, panel gauges, per-runtime VRAM). Until one is picked, the card with the most memory is followed, and the choice is stored in the widget's own `shell.json` entry (`"gpu"`).
-
-The **Plugin** section of the settings page picks which items the bar shows on its **Items** row: **CPU** and **RAM** (in the bar's colour), **LOAD** (in the followed card's colour) and **MODELS** (the models ring, in the theme accent). The bar and its tooltip update at once, and the choices are stored in the widget's own `shell.json` entry (`"showCpu"`, `"showRam"`, `"showLoad"`, `"showModels"` — a hidden item is stored as `false`, switching it back on removes the key again). The models ring only appears while a model is resident.
-
-## How it works
-
-An engine written in Rust (`bin/engine`, source in `engine/`) runs while the widget is loaded and streams one JSON snapshot every two seconds (under 1 % of one CPU core, ~30 MiB RAM).
-
-- **Read-only by default.** It reads `/proc`, the GPU (through all-smi) and the runtimes' local status endpoints on `127.0.0.1` (llama.cpp 8080, Ollama 11434, LM Studio 1234, vLLM 8000 or its `--port`) **only while that runtime is already running**. It never starts, stops or reconfigures a runtime by itself and sends nothing to the network.
-- **Runtimes are told apart by systemd unit and executable path**, because Ollama and LM Studio both ship an engine named `llama-server`.
-- **One-shot llama.cpp tools** (`llama-tts`, `llama-cli`, `llama-mtmd-cli`, ...) count as llama.cpp while they run, e.g. Simple Reader's Qwen voices. They have no HTTP API, so they show the model, VRAM, CPU, RAM and the program that started them, but no context or output buffers.
-- **GPU memory per runtime** comes from all-smi's per-process GPU memory. On AMD, memory the driver evicted to system RAM because VRAM ran full is read from DRM `fdinfo` (`amd-requested-vram` minus `drm-resident-vram`) and reported separately (the `!` in the bar); other drivers do not expose it.
-- **Context and output buffers.** llama.cpp: tokens from `/slots`; the KV-cache size is projected once per model load with `llama-fit-params` from the same llama.cpp build (CPU only, nothing is loaded onto the GPU). vLLM: KV-cache fill from `/metrics` (`kv_cache_usage_perc`, pool size from `cache_config_info`); vLLM does not report a per-reply output limit, so it has no output-buffer row. Ollama and LM Studio report only the configured context size.
-- **Installed or not** is checked about once a minute (command on `PATH`, systemd unit or LM Studio's `~/.lmstudio`), so a runtime you never installed shows _not installed_ instead of _stopped_.
-
-### Free GPU memory (the only action that changes anything)
-
-Only when you click **Free GPU memory**, `scripts/free-gpu.sh` runs:
-
-- **llama.cpp router:** `POST /models/unload` for every loaded model; the router keeps running and loads a model again on the next request.
-- **Ollama:** `keep_alive: 0` for every model in memory; the service keeps running.
-- **LM Studio:** `lms unload --all` if its daemon is running (the daemon keeps running).
-- **llama-server without the router, and vLLM**, which cannot unload a model: the user systemd unit that owns the process is stopped, whatever its name. User units only, never root.
-
-This frees the models for every program using them at that moment.
-
-## Development
-
-The build tools are pinned in `mise.toml`: Rust, `protoc` (all-smi's build script compiles a protobuf file), the all-smi release that provides `liball_smi_amd.so`, and `cargo-about` for the third-party license notice.
+The build tools are pinned in `mise.toml`: Rust, `protoc` (needed by all-smi's build script), the all-smi release that provides `liball_smi_amd.so`, and `cargo-about` for the third-party license notice.
 
 ```sh
-mise install          # Rust, protoc, all-smi, cargo-about
-mise run build        # rebuild bin/engine and copy bin/liball_smi_amd.so beside it
-mise run licenses     # regenerate licenses/THIRD-PARTY.txt (after changing dependencies)
-mise run snapshot     # print one snapshot (bin/engine --once)
-mise run validate     # omarchy plugin validate .
+mise install            # Rust, protoc, all-smi, cargo-about
+mise run build          # rebuild bin/engine and copy bin/liball_smi_amd.so beside it
+mise run licenses       # regenerate licenses/THIRD-PARTY.txt (after changing dependencies)
+mise run snapshot       # print one snapshot (bin/engine --once)
+mise run validate       # omarchy plugin validate .
+mise run version 1.2.0  # set manifest.json to 1.2.0, commit and tag v1.2.0
 ```
 
-Cargo builds into `~/.cache/battle-station-engine/target`, outside the plugin folder: Omarchy reloads a plugin whenever a file in it changes. Commit `bin/engine`, `bin/liball_smi_amd.so` and `engine/Cargo.lock` together after a rebuild, and run `mise run licenses` + commit `licenses/THIRD-PARTY.txt` when the dependencies changed; Omarchy installs plugins with a plain `git clone` and never runs a build. The all-smi crate (`engine/Cargo.toml`) and the all-smi tool in `mise.toml` must stay on the same version, because the engine loads the companion library through a versioned ABI. On other architectures (e.g. aarch64), run `mise run build` once in the plugin folder.
+- Cargo builds into `~/.cache/battle-station-engine/target`, outside the plugin folder, because Omarchy reloads a plugin whenever a file in it changes.
+- Omarchy installs plugins with a plain `git clone` and never builds, so `bin/` is committed. CI builds it (see [Binaries and releases](#binaries-and-releases)); a local `mise run build` is only for testing, or for other architectures (e.g. aarch64), where it is run once in the plugin folder. Run `git config core.hooksPath .githooks` once per clone: its `pre-commit` hook refuses commits that touch `bin/` (drop local builds with `git restore bin/`).
+- Commit `engine/Cargo.lock`, and `licenses/THIRD-PARTY.txt` after `mise run licenses`, when the dependencies change.
+- The all-smi crate (`engine/Cargo.toml`) and the all-smi tool in `mise.toml` must stay on the same version: the engine loads the companion library through a versioned ABI.
+- The JSON the engine prints is the contract with the QML (`EngineHub.qml` → `BarWidget.qml` / `Panel.qml`); keep its shape when changing the engine.
 
-The JSON the engine prints is the contract with the QML (`BarWidget.qml` → `Panel.qml`); keep its shape when changing the engine.
+## Engine details
 
-`preview.png` is composed from the real screenshots in `screenshots/`; the values it shows are sample data.
+- **One-shot llama.cpp tools** (`llama-tts`, `llama-cli`, `llama-mtmd-cli`, ...) count as llama.cpp while they run. They have no HTTP API, so they show model, VRAM, CPU, RAM and the parent program, but no context or output buffers.
+- **Evicted memory (AMD).** VRAM the driver moved to system RAM is read from DRM `fdinfo` (`amd-requested-vram` minus `drm-resident-vram`) and shown as the `!` in the bar; other drivers do not expose it.
+- **Context and output buffers.** llama.cpp: tokens from `/slots`, with the KV-cache size projected once per model load by `llama-fit-params` (CPU only). vLLM: KV-cache fill from `/metrics`, no output limit. Ollama and LM Studio: configured context size only.
+- **Installed or not** is checked about once a minute (command on `PATH`, systemd unit or `~/.lmstudio`), so a runtime never installed shows _not installed_ instead of _stopped_.
+- **Detach** runs `scripts/free-gpu.sh`; it only touches user systemd units, never root.
 
-## Verifying the bundled binaries
+## Settings and languages
 
-`bin/engine` and `bin/liball_smi_amd.so` are built by GitHub Actions ([`build-engine.yml`](.github/workflows/build-engine.yml)) from the exact commit, with the toolchain pinned in `mise.toml` (`mise run build`). Each file carries a build provenance attestation, and `bin/SHA256SUMS` lists their digests.
+Translations live in `lang/`. Without a choice, the language follows the Hyprland keyboard layout, then `LC_ALL` / `LC_MESSAGES` / `LANG`, then English.
 
-Check them with the [GitHub CLI](https://cli.github.com/):
+Settings are stored in the widget's entry in `~/.config/omarchy/shell.json`: `language`, `gpu`, and `showCpu` / `showRam` / `showLoad` / `showModels` (only stored as `false`; the default removes the key).
+
+## Binaries and releases
+
+`bin/engine` and `bin/liball_smi_amd.so` are built by [`build-engine.yml`](.github/workflows/build-engine.yml) on every push to `main` that changes `engine/`, `mise.toml` or `scripts/build-engine.sh`. It signs a build provenance attestation, commits `bin/` (with `SHA256SUMS` and the attestation as `provenance.sigstore.json`) as `🤖 build binaries from <sha>`, and starts [`verify-binaries.yml`](.github/workflows/verify-binaries.yml). The build is not reproducible bit for bit, so binaries are verified through their attestation, not rebuilt.
+
+To release:
+
+1. Push your changes to `main` and wait for the bot commit.
+2. `git pull`, then `mise run version 1.2.0`. It checks that `bin/` matches the current sources, updates `manifest.json`, commits and tags `v1.2.0`.
+3. `git push origin main v1.2.0`. [`release.yml`](.github/workflows/release.yml) verifies the binaries and publishes them.
+
+To check the binaries yourself:
 
 ```sh
-cd bin && sha256sum -c SHA256SUMS && cd ..
-gh attestation verify bin/engine --repo vk2r/battle-station
-gh attestation verify bin/liball_smi_amd.so --repo vk2r/battle-station
+(cd bin && sha256sum -c SHA256SUMS)
+gh attestation verify bin/engine --repo vk2r/battle-station --bundle bin/provenance.sigstore.json
 ```
-
-The attestation names the workflow run and the source commit that produced each file. [`verify-binaries.yml`](.github/workflows/verify-binaries.yml) runs the same checks on every push. `liball_smi_amd.so` is the unmodified file from the all-smi release pinned in `mise.toml`.
-
-### Releasing a new engine
-
-1. Change `engine/` and push it.
-2. Run the **Build engine** workflow by hand and download its `bin` artifact.
-3. Put the three files in `bin/` (`chmod +x bin/engine bin/liball_smi_amd.so`), commit and push.
-4. Push a `v*` tag: the workflow rebuilds, attests and publishes a release with the same files. **Verify binaries** must stay green.
