@@ -1,6 +1,8 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Shapes
 import Quickshell
+import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "I18n.js" as I18n
@@ -111,9 +113,39 @@ Panel {
       onTextKey: function(text) { if (text === "\b" && root.settingsOpen) root.settingsOpen = false }
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
+      // Plugin version, read from the bundled manifest.json for the
+      // Settings footer.
+      FileView {
+        id: manifestFile
+        path: Qt.resolvedUrl("manifest.json").toString().replace(/^file:\/\//, "")
+        printErrors: false
+        onLoaded: {
+          try { versionFooter.text = JSON.parse(manifestFile.text()).version || "" } catch (e) { versionFooter.text = "" }
+        }
+      }
+
+      // Settings footer: the version, pinned under the scrolling area so it
+      // stays on the panel's bottom edge however long the page grows.
+      Text {
+        id: versionFooter
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        visible: root.settingsOpen && text !== ""
+        horizontalAlignment: Text.AlignHCenter
+        textFormat: Text.PlainText
+        color: root.dim
+        font.family: root.font
+        font.pixelSize: Style.font.caption
+      }
+
       Flickable {
         id: scroller
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: versionFooter.visible ? versionFooter.top : parent.bottom
+        anchors.bottomMargin: versionFooter.visible ? Style.space(10) : 0
         contentWidth: width
         // On Settings the faded-out Home page still sits below this page in the
         // column; without the clamp it would make the short page scrollable.
@@ -151,12 +183,40 @@ Panel {
               }
             }
             iconComponent: Component {
-              Text {
-                textFormat: Text.PlainText
-                text: "\udb85\udcde"
-                color: Color.accent
-                font.family: root.font
-                font.pixelSize: Style.font.display
+              // llama-suite's header reticle (assets/icons/reticle.svg), drawn
+              // as shapes on its 24-unit grid so it takes the theme accent.
+              Item {
+                implicitWidth: Style.font.display
+                implicitHeight: Style.font.display
+
+                Shape {
+                  width: 24
+                  height: 24
+                  scale: parent.width / 24
+                  transformOrigin: Item.TopLeft
+                  preferredRendererType: Shape.CurveRenderer
+
+                  ShapePath {
+                    strokeColor: Color.accent
+                    strokeWidth: 2
+                    fillColor: "transparent"
+                    capStyle: ShapePath.SquareCap
+                    joinStyle: ShapePath.MiterJoin
+                    PathSvg { path: "M2 7 V2 H7 M17 2 H22 V7 M22 17 V22 H17 M7 22 H2 V17" }
+                  }
+                  ShapePath {
+                    strokeColor: Color.accent
+                    strokeWidth: 1.75
+                    fillColor: "transparent"
+                    capStyle: ShapePath.SquareCap
+                    PathSvg { path: "M16.17 7.68 A6 6 0 0 1 16.17 16.32 M13.65 17.77 A6 6 0 0 1 6.18 13.45 M6.18 10.55 A6 6 0 0 1 13.65 6.23" }
+                  }
+                  ShapePath {
+                    strokeColor: "transparent"
+                    fillColor: Color.accent
+                    PathSvg { path: "M11 11 H13 V13 H11 Z" }
+                  }
+                }
               }
             }
           }
