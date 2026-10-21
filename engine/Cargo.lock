@@ -361,6 +361,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
+name = "battle-station-engine"
+version = "1.0.0"
+dependencies = [
+ "all-smi",
+ "regex",
+ "serde_json",
+]
+
+[[package]]
 name = "bcrypt-pbkdf"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1895,15 +1904,6 @@ name = "litemap"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
-
-[[package]]
-name = "battle-station-engine"
-version = "1.0.0"
-dependencies = [
- "all-smi",
- "regex",
- "serde_json",
-]
 
 [[package]]
 name = "lock_api"
