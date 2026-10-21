@@ -108,15 +108,23 @@ impl Gpu {
     pub fn stats(&self) -> Option<Value> {
         let info = self.info()?;
         let vendor = vendor_of(&info.name);
+        // all-smi reads AMD load from gpu_metrics, whose APU tables (v2.x) count
+        // in hundredths of a percent, so an iGPU always shows 100 %; amdgpu's
+        // own busy counter is right on every card. Socket power has the same
+        // problem (watts on APUs, divided by 1000 as if milliwatts), so it
+        // comes from amdgpu's hwmon sensor too.
+        let amd_slot = (vendor == "amd").then(|| pci_slot(&info)).flatten();
+        let busy = amd_slot.as_deref().and_then(amd_busy);
+        let power = amd_slot.as_deref().and_then(amd_power);
         Some(json!({
             "vendor": vendor,
             "color": color_of(vendor),
             "vram_used": info.used_memory,
             "vram_total": info.total_memory,
-            "busy": info.utilization,
+            "busy": busy.unwrap_or(info.utilization),
             // 0 °C means the driver reported nothing.
             "temp": (info.temperature > 0).then_some(info.temperature),
-            "power": info.power_consumption,
+            "power": power.unwrap_or(info.power_consumption),
             "slot": pci_slot(&info).unwrap_or_default(),
         }))
     }
@@ -160,6 +168,24 @@ impl Gpu {
 /// The PCI slot an all-smi reader reports in its details, if any.
 fn pci_slot(info: &GpuInfo) -> Option<String> {
     ["PCI Bus ID", "PCI Bus"].iter().find_map(|key| info.detail.get(*key)).cloned().filter(|slot| !slot.is_empty())
+}
+
+/// GPU load in percent from amdgpu's sysfs counter, for the card at a PCI slot
+/// as all-smi's AMD reader names it (0000:04:00.0).
+fn amd_busy(slot: &str) -> Option<f64> {
+    let busy = read(&format!("/sys/bus/pci/devices/{slot}/gpu_busy_percent")).trim().parse::<f64>().ok()?;
+    Some(busy.clamp(0.0, 100.0))
+}
+
+/// Power draw in watts from amdgpu's hwmon sensor (microwatts), for the card at
+/// a PCI slot: the average where the card has one, else the current reading.
+/// On an APU this is the whole package (PPT), as the GPU has no sensor of its own.
+fn amd_power(slot: &str) -> Option<f64> {
+    let hwmon = fs::read_dir(format!("/sys/bus/pci/devices/{slot}/hwmon")).ok()?.flatten().next()?.path();
+    ["power1_average", "power1_input"].iter().find_map(|file| {
+        let microwatts = read(&hwmon.join(file).to_string_lossy()).trim().parse::<u64>().ok()?;
+        Some(microwatts as f64 / 1_000_000.0)
+    })
 }
 
 /// The DRM card behind an all-smi PCI slot. DRM names slots like 0000:0b:00.0
