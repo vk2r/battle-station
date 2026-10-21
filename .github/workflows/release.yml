@@ -29,7 +29,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            bin/engine bin/liball_smi_amd.so bin/SHA256SUMS \
+            bin/engine bin/liball_smi_amd.so bin/SHA256SUMS bin/provenance.sigstore.json \
             --verify-tag \
             --title "$GITHUB_REF_NAME" \
-            --notes "Binaries built by .github/workflows/build-engine.yml and verified against their build provenance. Verify with: gh attestation verify bin/engine --repo $GITHUB_REPOSITORY"
+            --notes "Binaries built by .github/workflows/build-engine.yml and verified against their build provenance (provenance.sigstore.json). Verify with: gh attestation verify engine --repo $GITHUB_REPOSITORY --bundle provenance.sigstore.json"
