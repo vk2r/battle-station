@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::os::unix::fs::MetadataExt;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use regex::Regex;
@@ -56,6 +57,20 @@ pub fn trusted(pid: &str) -> bool {
             .any(|line| line.splitn(3, ':').last().unwrap_or("").starts_with("/system.slice/")),
         Err(_) => false,
     }
+}
+
+/// `path` resolved, if only root or we can change what it runs.
+///
+/// A trusted process may still run as a service account; a helper found next
+/// to its binary is only run when the file and every directory above it belong
+/// to root or to us and nobody else can write them, so that account cannot
+/// plant code that runs as the desktop user.
+pub fn safe_executable(path: &Path) -> Option<PathBuf> {
+    let path = fs::canonicalize(path).ok()?;
+    let safe = |part: &Path| {
+        fs::metadata(part).is_ok_and(|meta| (meta.uid() == 0 || meta.uid() == my_uid()) && meta.mode() & 0o022 == 0)
+    };
+    (fs::metadata(&path).is_ok_and(|meta| meta.is_file()) && path.ancestors().all(safe)).then_some(path)
 }
 
 // One-shot llama.cpp programs: they load a model on the GPU for one run and serve
