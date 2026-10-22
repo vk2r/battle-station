@@ -220,7 +220,8 @@ impl Runtimes {
     /// must not choose what runs here or which model file gets parsed.
     ///
     /// llama-fit-params (next to the llama-server binary) projects the memory
-    /// breakdown without loading weights; `-dev none` keeps it off the GPU. The
+    /// breakdown without loading weights; `-dev none` keeps it off the GPU. It
+    /// only runs if root or we own it and its directories (`safe_executable`). The
     /// KV cache is allocated in full at load, so this is what the context holds
     /// in VRAM. Cached per argument set: it runs once per model load.
     fn context_memory(&mut self, pid: &str) -> Option<u64> {
@@ -255,9 +256,10 @@ impl Runtimes {
         if let Some(cached) = self.context_memory.get(&key) {
             return *cached;
         }
-        let tool = binary.parent().unwrap_or(Path::new("/")).join("llama-fit-params");
-        let output =
-            run_output(Command::new(tool).args(&wanted).args(["-dev", "none", "-lv", "4"]), Duration::from_secs(30));
+        let helper = binary.parent().unwrap_or(Path::new("/")).join("llama-fit-params");
+        let output = procs::safe_executable(&helper).and_then(|tool| {
+            run_output(Command::new(tool).args(&wanted).args(["-dev", "none", "-lv", "4"]), Duration::from_secs(30))
+        });
         // "|   - Host   |   7444 =  4935 +  1877 +  631   |": model + context + compute
         let row = ROW.get_or_init(|| Regex::new(r"\|\s+- .*?\|\s+\d+\s*=\s*\d+\s*\+\s*(\d+)\s*\+\s*\d+").unwrap());
         let total = output.and_then(|output| {
